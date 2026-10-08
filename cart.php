@@ -1,0 +1,13 @@
+<?php
+require_once "config/database.php";require_once "includes/functions.php";
+if(isset($_GET['remove'])){unset($_SESSION['cart'][(int)$_GET['remove']]);redirect('cart.php');}
+if($_SERVER['REQUEST_METHOD']==='POST'){$qtys=$_POST['qty']??[];if(is_array($qtys)){foreach($qtys as $id=>$q){$q=(int)$q;if($q<1)unset($_SESSION['cart'][(int)$id]);else $_SESSION['cart'][(int)$id]=$q;}}redirect('cart.php');}
+$cart=$_SESSION['cart']??[];$items=[];$subtotal=0;
+if($cart){$ids=array_keys($cart);$in=implode(',',array_fill(0,count($ids),'?'));$s=$pdo->prepare("SELECT * FROM foods WHERE id IN ($in) AND status=1");$s->execute($ids);foreach($s as $f){$f['qty']=$cart[$f['id']];$f['line']=$f['qty']*$f['price'];$subtotal+=$f['line'];$items[]=$f;}
+// Drop foods that were deleted/deactivated so the cart badge and totals match checkout.
+$_SESSION['cart']=array_intersect_key($_SESSION['cart'],array_flip(array_map(fn($i)=>(int)$i['id'],$items)));}
+$delivery=$subtotal>0?50:0;$total=$subtotal+$delivery;
+$page_title="Your Cart";include "includes/header.php";?>
+<div class="container py-5"><h2 class="fw-bold mb-4">Your Cart</h2><?php if(!$items):?><div class="text-center py-5"><div class="display-1">🛒</div><h4>Your cart is empty.</h4><a href="menu.php" class="btn btn-danger">Browse Menu</a></div><?php else:?><form method="post"><div class="table-responsive"><table class="table bg-white"><thead><tr><th>Food</th><th>Price</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead><tbody><?php foreach($items as $i):?><tr><td><?=e($i['name'])?></td><td><?=money($i['price'])?></td><td><input class="form-control" type="number" min="1" name="qty[<?=$i['id']?>]" value="<?=$i['qty']?>" style="width:90px"></td><td><?=money($i['line'])?></td><td><a class="btn btn-sm btn-outline-danger" href="?remove=<?=$i['id']?>">Remove</a></td></tr><?php endforeach;?></tbody></table></div><button class="btn btn-outline-dark">Update Cart</button></form>
+<div class="row justify-content-end mt-4"><div class="col-md-5"><div class="card p-4 shadow-sm"><div class="d-flex justify-content-between"><span>Subtotal</span><b><?=money($subtotal)?></b></div><div class="d-flex justify-content-between"><span>Delivery</span><b><?=money($delivery)?></b></div><hr><div class="d-flex justify-content-between fs-4"><span>Total</span><b class="text-danger"><?=money($total)?></b></div><a class="btn btn-danger w-100 mt-3" href="checkout.php">Proceed to Checkout</a></div></div></div><?php endif;?></div>
+<?php include "includes/footer.php"; ?>
